@@ -1,0 +1,13 @@
+#!/bin/bash
+# run
+
+#module load r/4.2.2
+
+route_1="run-htp"
+
+if [ $1 == $route_1 ];
+then
+    run_htp_hto_qc=$(sbatch --parsable htp/routes/run-htp-hto-qc.sh)
+    run_htp_rna_qc=$(sbatch --parsable --dependency=afterok:$run_htp_hto_qc htp/routes/run-htp-rna-qc.sh)
+    run_htp_processing=$(sbatch --parsable --dependency=afterok:$run_htp_rna_qc htp/routes/run-htp-processing.sh)
+fi

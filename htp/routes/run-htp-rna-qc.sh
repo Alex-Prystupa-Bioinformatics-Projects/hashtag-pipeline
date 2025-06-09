@@ -1,17 +1,15 @@
 #!/bin/bash
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=Aleksandr.Prystupa@nyulangone.org
-#SBATCH --time=01:00:00
-#SBATCH --partition=a100_short
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=5
-#SBATCH --mem=64G
-#SBATCH --job-name=run_htp
-#SBATCH --output=logs/run_rna_qc_%A_%a.out
-#SBATCH --error=logs/run_rna_qc_%A_%a.err
+#BSUB -q premium
+#BSUB -P acc_naiklab
+#BSUB -J run_htp
+#BSUB -n 5
+#BSUB -R "rusage[mem=30000]"
+#BSUB -W 1:00
+#BSUB -o logs/run_rna_qc_%J.out
+#BSUB -e logs/run_rna_qc_%J.err
 
 module purge
-module load r/4.2.2
+module load R/4.2.0
 
 proj_dir=$(pwd)
 

@@ -2,9 +2,11 @@
 
 # 1. Load Data
 load.hto.data <- function(path, project_name) {
+
   seu_data <- Read10X(data.dir = path)
   seu_obj <- CreateSeuratObject(counts = seu_data$`Gene Expression`, project = project_name, min.cells = 3, min.features = 200)
   
+  print("Object Created")
   # 2. Subset Counts to Contain only barcodes in both Gene Expression & HTO
   joint_bcs <- intersect(rownames(seu_obj@meta.data), colnames(seu_data$`Cell Hashing`))
   
@@ -13,7 +15,7 @@ load.hto.data <- function(path, project_name) {
   
   # 3. Add HTO Assay
   seu_obj[["HTO"]] <- CreateAssayObject(counts = seu_data$`Cell Hashing`)
-  
+
   return(seu_obj)
 }
 

@@ -1,13 +1,55 @@
 #!/bin/bash
 # run
 
-#module load r/4.2.2
+# route_1="run-htp"
+# RES_COLS=$2
+
+# if [ "$1" == "$route_1" ]; then
+#     run_htp_hto_qc=$(sbatch --parsable htp/routes/run-htp-hto-qc.sh)
+#     run_htp_rna_qc=$(sbatch --parsable --dependency=afterok:$run_htp_hto_qc htp/routes/run-htp-rna-qc.sh)
+#     run_htp_processing=$(sbatch --parsable --dependency=afterok:$run_htp_rna_qc -v RES_COLS=$RES_COLS htp/routes/run-htp-processing.sh)
+# fi
+
+# route_1="run-htp"
+# RES_COLS=$2
+
+# if [ "$1" == "$route_1" ]; then
+#     run_htp_hto_qc=$(bsub < htp/routes/run-htp-hto-qc.sh | awk '{print $2}')
+#     run_htp_rna_qc=$(bsub -w "done($run_htp_hto_qc)" < htp/routes/run-htp-rna-qc.sh | awk '{print $2}')
+#     run_htp_processing=$(bsub -w "done($run_htp_rna_qc)" -env "all,RES_COLS=$RES_COLS" < htp/routes/run-htp-processing.sh | awk '{print $2}')
+# fi
+
+#!/bin/bash
+
+submit_job() {
+    local job_name="$1"
+    local script="$2"
+    local dependency="$3"
+    local env_vars="$4"
+
+    if [ -z "$dependency" ]; then
+        bsub -J "$job_name" \
+             -o "logs/${job_name}_%J.out" \
+             -e "logs/${job_name}_%J.err" \
+             -env "all,$env_vars" \
+             < "$script"
+    else
+        bsub -J "$job_name" \
+             -w "done(${dependency})" \
+             -o "logs/${job_name}_%J.out" \
+             -e "logs/${job_name}_%J.err" \
+             -env "all,$env_vars" \
+             < "$script"
+    fi
+}
 
 route_1="run-htp"
+RES_COLS=$2
 
-if [ $1 == $route_1 ];
-then
-    run_htp_hto_qc=$(sbatch --parsable htp/routes/run-htp-hto-qc.sh)
-    run_htp_rna_qc=$(sbatch --parsable --dependency=afterok:$run_htp_hto_qc htp/routes/run-htp-rna-qc.sh)
-    run_htp_processing=$(sbatch --parsable --dependency=afterok:$run_htp_rna_qc htp/routes/run-htp-processing.sh)
+if [ "$1" == "$route_1" ]; then
+    mkdir -p logs
+
+    submit_job run_htp_hto_qc htp/routes/run-htp-hto-qc.sh ""
+    submit_job run_htp_rna_qc htp/routes/run-htp-rna-qc.sh run_htp_hto_qc
+    submit_job run_htp_processing htp/routes/run-htp-processing.sh run_htp_rna_qc "RES_COLS=$RES_COLS"
 fi

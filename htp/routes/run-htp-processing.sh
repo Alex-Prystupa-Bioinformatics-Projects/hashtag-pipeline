@@ -1,25 +1,24 @@
 #!/bin/bash
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=Aleksandr.Prystupa@nyulangone.org
-#SBATCH --time=01:00:00
-#SBATCH --partition=a100_short
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=5
-#SBATCH --mem=64G
-#SBATCH --job-name=run_htp_processing
-#SBATCH --output=logs/run_htp_processing_%A_%a.out
-#SBATCH --error=logs/run_htp_processing_%A_%a.err
+#BSUB -q premium
+#BSUB -P acc_naiklab
+#BSUB -J run_htp_processing
+#BSUB -n 5
+#BSUB -R "rusage[mem=30000]"
+#BSUB -W 1:00
+#BSUB -o logs/run_htp_processing_%J.out
+#BSUB -e logs/run_htp_processing_%J.err
 
 module purge
-module load r/4.2.2
+module load R/4.2.0
 
 proj_dir=$(pwd)
 
-mkdir logs
+mkdir -p logs
 
-# bash commands
-bash_cmd="Rscript --vanilla ${proj_dir}/htp/scripts/HTP-Processing.R"
+echo "RES_COLS=$RES_COLS"
 
-# Run Step-1
+# Pass RES_COLS as an argument to Rscript
+bash_cmd="Rscript --vanilla ${proj_dir}/htp/scripts/HTP-Processing.R --res_cols $RES_COLS"
+
 echo $bash_cmd
-($bash_cmd) 
+($bash_cmd)

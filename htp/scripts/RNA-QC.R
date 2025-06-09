@@ -56,7 +56,7 @@ for (name in hto_run_names) {
 merged_seu_obj <- merge(seu_obj_list[[1]], y=c(seu_obj_list[-1]))
 
 # Filter Seurat Object **** MOST IMPORTANT STEP ***
-merged_seu_obj <- subset(merged_seu_obj, subset = nFeature_RNA > 500 & nFeature_RNA < 7000 & percent.mt < 20)
+merged_seu_obj <- subset(merged_seu_obj, subset = nFeature_RNA > 500 & nFeature_RNA < 7000 & percent.mt < 10)
 
 # Save Seurat Objects
 saveRDS(seu_obj_list, "htp-outs/QC-Output/RNA-QC/RDS/seu-list-post-qc.RDS")

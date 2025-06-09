@@ -1,28 +1,46 @@
 # processing-utils.R
 
 # 1. Multi Sample Pipeline
-multi_sample_pipeline <- function(merged_seu_obj, split_col="orig.ident", harmony=FALSE) {
+multi_sample_pipeline <- function(merged_seu_obj, split_col = "orig.ident", res_cols = "RNA") {
   
-  merged_seu_obj <- NormalizeData(merged_seu_obj)
-  merged_seu_obj <- FindVariableFeatures(merged_seu_obj)
-  merged_seu_obj <- ScaleData(merged_seu_obj)
+  if (res_cols == "SCT") {
+    merged_seu_obj <- SCTransform(merged_seu_obj, verbose = FALSE)
+  } else {
+    merged_seu_obj <- NormalizeData(merged_seu_obj)
+    merged_seu_obj <- FindVariableFeatures(merged_seu_obj)
+    merged_seu_obj <- ScaleData(merged_seu_obj)
+  }
+  
   merged_seu_obj <- RunPCA(merged_seu_obj)
-  merged_seu_obj <- RunHarmony(merged_seu_obj, assay.use="RNA", group.by.vars = "orig.ident")
+  merged_seu_obj <- RunHarmony(merged_seu_obj, assay.use = res_cols, group.by.vars = split_col)
   merged_seu_obj <- RunUMAP(merged_seu_obj, reduction = "harmony", dims = 1:40)
-  merged_seu_obj <- FindNeighbors(merged_seu_obj, reduction = "harmony", dims = 1:40) %>% FindClusters(resolution = c(1:10 / 10))
+  merged_seu_obj <- FindNeighbors(merged_seu_obj, reduction = "harmony", dims = 1:40)
+  merged_seu_obj <- FindClusters(merged_seu_obj, resolution = c(1:10 / 10))
   
   return(merged_seu_obj)
 }
 
 # 2. Find Markers
-run.presto.specific.columns <- function(seu_obj, col_name_list = NULL, RNA_cols = F) {
+run.presto.specific.columns <- function(seu_obj, col_name_list = NULL, res_cols = "RNA") {
   
   DefaultAssay(seu_obj) <- "RNA"
-  seu_obj <- JoinLayers(seu_obj)
   
-  if (RNA_cols) {
+  if (res_cols == "RNA") {
+    seu_obj <- JoinLayers(seu_obj)
     col_name_list <- colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "RNA_snn")]
   }
+
+  if (res_cols == "SCT") {
+
+    # RNA Preprocessing (I like using RNA for DE Genes)
+    seu_obj <- NormalizeData(seu_obj)
+    seu_obj <- FindVariableFeatures(seu_obj)
+    seu_obj <- ScaleData(seu_obj)
+    seu_obj <- JoinLayers(seu_obj)
+
+    col_name_list <- colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "SCT_snn")]
+  }
+
   
   # Get Wilcox AUC results
   wilcox.auc.list <- list()
@@ -56,46 +74,56 @@ run.presto.specific.columns <- function(seu_obj, col_name_list = NULL, RNA_cols 
 }
 
 # 2. Plot UMAP
-plot.umaps <- function(seu_obj, save_path) {
+plot.umaps <- function(seu_obj, save_path, res_cols = "RNA") {
+  
+  prefix <- if (res_cols == "SCT") "SCT_snn" else "RNA_snn"
+  pattern <- if (res_cols == "SCT") "SCT_snn_res." else "RNA_snn_res."
   
   # Plot All Together in One File
   pdf(glue("{save_path}/all_resolutions_UMAPs.pdf"), height = 12, width = 16)
-  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "RNA_snn")]) {
-    res_num <- stringr::str_replace(string = res, pattern = "RNA_snn_res.", replacement = "")
-    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = T, plot.title = glue("UMAP Resolution {res_num}")) + theme(plot.title = element_text(hjust=0.5))
-    a  %>% print()
+  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), prefix)]) {
+    res_num <- stringr::str_replace(string = res, pattern = pattern, replacement = "")
+    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = TRUE, plot.title = glue("UMAP Resolution {res_num}")) + 
+      theme(plot.title = element_text(hjust = 0.5))
+    print(a)
   }
   dev.off()
   
   # Plot All Resolutions in Separate Files
-  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "RNA_snn")]) {
-    res_num <- stringr::str_replace(string = res, pattern = "RNA_snn_res.", replacement = "")
+  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), prefix)]) {
+    res_num <- stringr::str_replace(string = res, pattern = pattern, replacement = "")
     
     pdf(glue("{save_path}/specific-resolutions/UMAP-res-{res_num}.pdf"), height = 12, width = 16)
-    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = T, plot.title = glue("UMAP Resolution {res_num}")) + theme(plot.title = element_text(hjust=0.5))
-    a %>% print()
+    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = TRUE, plot.title = glue("UMAP Resolution {res_num}")) + 
+      theme(plot.title = element_text(hjust = 0.5))
+    print(a)
     dev.off()
   }
 }
 
-plot.umaps.labeled <- function(seu_obj, save_path) {
+plot.umaps.labeled <- function(seu_obj, save_path, res_cols = "RNA") {
+  
+  prefix <- if (res_cols == "SCT") "SCT_snn" else "RNA_snn"
+  pattern <- if (res_cols == "SCT") "SCT_snn_res." else "RNA_snn_res."
   
   # Plot All Together in One File
   pdf(glue("{save_path}/all_resolutions_UMAPs-Labeled.pdf"), height = 12, width = 16)
-  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "RNA_snn")]) {
-    res_num <- stringr::str_replace(string = res, pattern = "RNA_snn_res.", replacement = "")
-    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = T, plot.title = glue("UMAP Resolution {res_num}"), label = T) + theme(plot.title = element_text(hjust=0.5))
-    a  %>% print()
+  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), prefix)]) {
+    res_num <- stringr::str_replace(string = res, pattern = pattern, replacement = "")
+    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = TRUE, plot.title = glue("UMAP Resolution {res_num}"), label = TRUE) + 
+      theme(plot.title = element_text(hjust = 0.5))
+    print(a)
   }
   dev.off()
   
   # Plot All Resolutions in Separate Files
-  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), "RNA_snn")]) {
-    res_num <- stringr::str_replace(string = res, pattern = "RNA_snn_res.", replacement = "")
+  for (res in colnames(seu_obj@meta.data)[startsWith(colnames(seu_obj@meta.data), prefix)]) {
+    res_num <- stringr::str_replace(string = res, pattern = pattern, replacement = "")
     
     pdf(glue("{save_path}/specific-resolutions/UMAP-res-{res_num}-Labeled.pdf"), height = 12, width = 16)
-    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = T, plot.title = glue("UMAP Resolution {res_num}"), label = T) + theme(plot.title = element_text(hjust=0.5))
-    a %>% print()
+    a <- SCpubr::do_DimPlot(seu_obj, group.by = res, plot.axes = TRUE, plot.title = glue("UMAP Resolution {res_num}"), label = TRUE) + 
+      theme(plot.title = element_text(hjust = 0.5))
+    print(a)
     dev.off()
   }
 }
